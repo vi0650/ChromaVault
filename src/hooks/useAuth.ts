@@ -6,45 +6,48 @@
  */
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import { auth } from '../lib/firebase';
+import {
+    type User,
+    GithubAuthProvider,
+    signInWithPopup,
+    signOut as firebaseSignOut, // Renaming to avoid conflict with the local signOut function
+} from 'firebase/auth';
 
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // 1. Get current session on mount
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
+        // Subscribe to auth changes
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            setUser(user);
             setLoading(false);
         });
 
-        // 2. Subscribe to auth changes (login / logout / token refresh)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                setUser(session?.user ?? null);
-            }
-        );
-
-        return () => subscription.unsubscribe();
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
     }, []);
 
     /** Sign in with GitHub OAuth */
     const signInWithGitHub = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'github',
-            options: {
-                redirectTo: window.location.origin
-            },
-        });
-        if (error) throw error;
+        const provider = new GithubAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Error signing in with GitHub", error);
+            throw error;
+        }
     };
 
     /** Sign out the current user */
     const signOut = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        try {
+            await firebaseSignOut(auth);
+        } catch (error) {
+            console.error("Error signing out", error);
+            throw error;
+        }
     };
 
     return { user, loading, signInWithGitHub, signOut };

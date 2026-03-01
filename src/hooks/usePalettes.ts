@@ -2,13 +2,14 @@
  * usePalettes.ts
  * ─────────────────────────────────────────────
  * HOOK LAYER — manages palette list state, pagination, and filter switching.
- * All DB calls go through paletteService (never direct supabase calls here).
+ * All DB calls go through paletteService (never direct firebase calls here).
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchPalettes, likePalette } from '../services/paletteService';
 import type { ColorPalette } from '../types';
 import toast from 'react-hot-toast';
+import type { DocumentSnapshot } from 'firebase/firestore';
 
 interface UsePalettesReturn {
     palettes: ColorPalette[];
@@ -22,25 +23,24 @@ export function usePalettes(activeFilter: string): UsePalettesReturn {
     const [palettes, setPalettes] = useState<ColorPalette[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
-    // Track the current page in a ref to avoid stale closure issues
-    const pageRef = useRef(0);
+    const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
 
-    // ─── Load first page whenever the filter changes ─────────────────────────
+    // Load first page whenever the filter changes
     useEffect(() => {
         let cancelled = false;
 
         const loadFirst = async () => {
             setLoading(true);
-            pageRef.current = 0;
             setPalettes([]);
             setHasMore(true);
+            setLastDoc(null);
 
             try {
-                const data = await fetchPalettes(activeFilter, 0);
+                const { palettes: data, lastDoc: newLastDoc } = await fetchPalettes(activeFilter, null);
                 if (cancelled) return;
                 setPalettes(data);
+                setLastDoc(newLastDoc);
                 setHasMore(data.length === 20);
-                pageRef.current = 1;
             } catch (err: any) {
                 if (!cancelled) {
                     console.error('[usePalettes] Failed to load palettes:', err);
@@ -56,24 +56,24 @@ export function usePalettes(activeFilter: string): UsePalettesReturn {
     }, [activeFilter]);
 
 
-    // ─── Load next page (infinite scroll) ────────────────────────────────────
+    // Load next page (infinite scroll)
     const loadMore = useCallback(async () => {
-        if (loading || !hasMore) return;
+        if (loading || !hasMore || !lastDoc) return;
         setLoading(true);
 
         try {
-            const data = await fetchPalettes(activeFilter, pageRef.current);
+            const { palettes: data, lastDoc: newLastDoc } = await fetchPalettes(activeFilter, lastDoc);
             setPalettes(prev => [...prev, ...data]);
+            setLastDoc(newLastDoc);
             setHasMore(data.length === 20);
-            pageRef.current += 1;
         } catch (err) {
             console.error('[usePalettes] Failed to load more:', err);
         } finally {
             setLoading(false);
         }
-    }, [activeFilter, loading, hasMore]);
+    }, [activeFilter, loading, hasMore, lastDoc]);
 
-    // ─── Optimistic like ─────────────────────────────────────────────────────
+    // Optimistic like
     const handleLike = useCallback(async (paletteId: string, currentLikes: number) => {
         // Optimistic update — show change immediately
         setPalettes(prev =>

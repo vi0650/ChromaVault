@@ -50,7 +50,7 @@ export const CreatePalette = () => {
                 .map(t => t.trim().toLowerCase())
                 .filter(t => t.length > 0);
 
-            await insertPalette(colors, tagArray, user.id);
+            await insertPalette(colors, tagArray, user.uid);
             toast.success('Palette saved to Vault!');
             setTimeout(() => navigate('/vault'), 800);
         } catch (err) {

@@ -1,53 +1,86 @@
 /**
  * paletteService.ts
  * ─────────────────────────────────────────────
- * DATA LAYER — all direct Supabase calls live here.
- * Components/hooks must NEVER call supabase directly.
+ * DATA LAYER — all direct Firebase calls live here.
+ * Components/hooks must NEVER call firebase directly.
  */
 
-import { supabase } from '../lib/supabase';
+import { db, auth } from '../lib/firebase';
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    limit,
+    getDocs,
+    addDoc,
+    doc,
+    updateDoc,
+    increment,
+    serverTimestamp,
+    startAfter,
+    DocumentSnapshot,
+    QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import type { ColorPalette } from '../types';
 
 const PAGE_SIZE = 20;
 
-// ─── READ ──────────────────────────────────────────────────────────────────
+// Helper to convert Firestore docs to ColorPalette objects
+const fromFirestore = (docSnapshot: QueryDocumentSnapshot): ColorPalette => {
+    const data = docSnapshot.data();
+    return {
+        id: docSnapshot.id,
+        colors: data.colors,
+        tags: data.tags,
+        likes: data.likes,
+        user_id: data.user_id,
+        created_at: data.created_at?.toDate().toISOString(),
+    };
+};
 
 /** Fetch a page of palettes with optional filter */
 export async function fetchPalettes(
     filter: string,
-    page: number
-): Promise<ColorPalette[]> {
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    lastDoc: DocumentSnapshot | null
+): Promise<{ palettes: ColorPalette[], lastDoc: DocumentSnapshot | null }> {
+    let palettesQuery = query(collection(db, 'palettes'));
 
-    let query = supabase.from('palettes').select('*');
-
+    // Apply filters and ordering
     if (filter === 'Popular') {
-        query = query.order('likes', { ascending: false });
+        palettesQuery = query(palettesQuery, orderBy('likes', 'desc'));
     } else if (filter === 'New') {
-        query = query.order('created_at', { ascending: false });
+        palettesQuery = query(palettesQuery, orderBy('created_at', 'desc'));
     } else if (filter === 'Random') {
-        // Uses a Postgres RPC for true random; falls back to date order
-        query = query.order('created_at', { ascending: false });
+        // Firestore doesn't have a native 'random' order. Fallback to ordering by new.
+        palettesQuery = query(palettesQuery, orderBy('created_at', 'desc'));
     } else if (filter === 'Collection') {
-        // Caller must verify auth before calling this branch
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = sessionData.session?.user?.id;
-        if (!userId) throw new Error('NOT_AUTHENTICATED');
-        query = query.eq('user_id', userId).order('created_at', { ascending: false });
+        const userId = auth.currentUser?.uid;
+        if (!userId) {
+            return { palettes: [], lastDoc: null };
+        }
+        palettesQuery = query(palettesQuery, where('user_id', '==', userId), orderBy('created_at', 'desc'));
     } else {
-        // Category tag filter (Pastel, Neon, etc.)
-        query = query
-            .contains('tags', [filter.toLowerCase()])
-            .order('created_at', { ascending: false });
+        // Tag-based filter
+        palettesQuery = query(
+            palettesQuery,
+            where('tags', 'array-contains', filter.toLowerCase()),
+            orderBy('created_at', 'desc')
+        );
     }
+    
+    // Apply pagination
+    if (lastDoc) {
+        palettesQuery = query(palettesQuery, startAfter(lastDoc));
+    }
+    palettesQuery = query(palettesQuery, limit(PAGE_SIZE));
 
-    const { data, error } = await query.range(from, to);
-    if (error) throw error;
-    return (data ?? []) as ColorPalette[];
+    const querySnapshot = await getDocs(palettesQuery);
+    const palettes = querySnapshot.docs.map(fromFirestore);
+    const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
+
+    return { palettes, lastDoc: lastVisible };
 }
-
-// ─── WRITE ─────────────────────────────────────────────────────────────────
 
 /** Insert a new palette row */
 export async function insertPalette(
@@ -55,20 +88,23 @@ export async function insertPalette(
     tags: string[],
     userId: string
 ): Promise<void> {
-    const { error } = await supabase.from('palettes').insert([
-        { colors, tags, user_id: userId, likes: 0 },
-    ]);
-    if (error) throw error;
+    await addDoc(collection(db, 'palettes'), {
+        colors,
+        tags,
+        user_id: userId,
+        likes: 0,
+        created_at: serverTimestamp(), // Use server timestamp for consistency
+    });
 }
 
 /** Increment the like count for a palette */
 export async function likePalette(
     paletteId: string,
-    currentLikes: number
+    currentLikes: number // currentLikes is not needed for Firestore's increment
 ): Promise<void> {
-    const { error } = await supabase
-        .from('palettes')
-        .update({ likes: currentLikes + 1 })
-        .eq('id', paletteId);
-    if (error) throw error;
+    const paletteRef = doc(db, 'palettes', paletteId);
+    // Use the atomic 'increment' operation
+    await updateDoc(paletteRef, {
+        likes: increment(1)
+    });
 }
