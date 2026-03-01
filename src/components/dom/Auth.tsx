@@ -6,10 +6,10 @@
  */
 
 import { Github, LogOut, Loader2 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 
 export const Auth = () => {
-    const { user, handleGitHub, handleLogout, authLoading } = useAuth();
+    const { user, loading: authLoading, signInWithGitHub: handleGitHub, signOut: handleLogout } = useAuth();
 
     // ── RENDER ──────────────────────────────────────────────────────────────
 
