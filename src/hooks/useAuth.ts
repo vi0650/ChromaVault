@@ -6,13 +6,14 @@
  */
 
 import { useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import {
     type User,
     GithubAuthProvider,
     signInWithPopup,
     signOut as firebaseSignOut, // Renaming to avoid conflict with the local signOut function
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null);
@@ -33,7 +34,18 @@ export function useAuth() {
     const signInWithGitHub = async () => {
         const provider = new GithubAuthProvider();
         try {
-            await signInWithPopup(auth, provider);
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+
+            // Create or update the user's document in Firestore
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL,
+            }, { merge: true });
+
         } catch (error) {
             console.error("Error signing in with GitHub", error);
             throw error;
