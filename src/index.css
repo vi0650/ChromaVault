@@ -1,15 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+
+  /* ── Default: dark background ─────────────────────────────────── */
   body {
-    @apply antialiased;
+    @apply bg-base-dark text-slate-100 antialiased font-sans;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  /* ── Light mode override ────────────────────────────────────────── */
+  .light body,
+  html:not(.dark) body {
+    @apply bg-base-light text-slate-800;
+  }
+
+  /* ── Custom thin scrollbar ─────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
   }
 }
 
-@layer components {
-  .color-transition {
-    @apply transition-colors duration-200;
-  }
+/* ── Lenis smooth scroll setup ──────────────────────────────────── */
+html.lenis {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+/* ── Glassmorphism utility ──────────────────────────────────────── */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }

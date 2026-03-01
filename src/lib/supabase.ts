@@ -1,23 +1,26 @@
+/**
+ * supabase.ts
+ * ─────────────────────────────────────────────
+ * Supabase client singleton.
+ * detectSessionInUrl must be TRUE so OAuth redirects are handled correctly.
+ */
+
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+    throw new Error(
+        'Missing Supabase environment variables.\n' +
+        'Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.'
+    );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false
-  }
-});
-
-// Initialize session recovery
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'TOKEN_REFRESHED') {
-    console.log('Token was refreshed automatically');
-  }
+    auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true, // ← MUST be true for OAuth (GitHub / Google) redirects
+    },
 });

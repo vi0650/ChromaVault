@@ -4,17 +4,26 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Space Grotesk"', 'sans-serif'],
+      },
       colors: {
-        primary: '#00224D',
-        secondary: '#5D0E41',
-        accent: '#A0153E',
-        highlight: '#FF204E',
-        dark: {
-          DEFAULT: '#000000',
-          100: '#0A0A0A',
-          200: '#121212',
-          300: '#1A1A1A',
-          400: '#242424'
+        primary: {
+          light: '#f3e8ff', // purple-50
+          dark: '#3b0764', // purple-900
+        },
+        secondary: {
+          light: '#e9d5ff', // purple-200
+          dark: '#581c87', // purple-800
+        },
+        accent: {
+          DEFAULT: '#d946ef', // fuchsia-500
+          hover: '#c026d3', // fuchsia-600
+        },
+        highlight: '#8b5cf6', // violet-500
+        base: {
+          dark: '#0a0a0c', // Deep web3 dark background
+          light: '#fafafa', // Light background
         }
       },
       animation: {
