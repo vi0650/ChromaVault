@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Palette, Plus } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { Auth } from './Auth';
+import { seedPalettes } from '../../lib/seedPalettes';
+import toast from 'react-hot-toast';
 
 export const Header = () => {
     const [scrolled, setScrolled] = useState(false);
@@ -12,8 +14,26 @@ export const Header = () => {
         const handleScroll = () => {
             setScrolled(window.scrollY > 10);
         };
+
+        const handleKeyPress = async (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+                const toastId = toast.loading('Seeding palettes...');
+                try {
+                    const count = await seedPalettes();
+                    toast.success(`Successfully seeded ${count} palettes!`, { id: toastId });
+                    window.location.reload();
+                } catch (err) {
+                    toast.error('Seeding failed.', { id: toastId });
+                }
+            }
+        };
+
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+        window.addEventListener('keydown', handleKeyPress);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('keydown', handleKeyPress);
+        };
     }, []);
 
     // Only apply text-white on Home page if not scrolled, else use theme colors
